@@ -1,21 +1,15 @@
+using System.Collections;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
     private Rigidbody playerRb;
     private GameObject focalPoint;
+    private float powerupStrength = 15.0f;
 
-    [Header("Movement")]
-    public float speed = 5.0f;
+    public float speed = 8.0f;
 
-    [Header("Jump")]
-    public float jumpForce = 8.0f;
-    private bool isGrounded;
-
-    [Header("Dash")]
-    public float dashForce = 20f;
-    public float dashCooldown = 1f;
-    private float lastDashTime;
+    public bool hasPowerup;
 
     void Start()
     {
@@ -25,55 +19,37 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        Move();
-        Jump();
-        Dash();
-    }
-
-    private void Move()
-    {
+        // Get input from both vertical (forward/backward) and horizontal (left/right)
         float forwardInput = Input.GetAxis("Vertical");
-        float sideInput = Input.GetAxis("Horizontal");
+        float horizontalInput = Input.GetAxis("Horizontal");
 
-        Vector3 moveDirection =
-            focalPoint.transform.forward * forwardInput +
-            focalPoint.transform.right * sideInput;
+        // Apply forces based on the focal point's direction
+        Vector3 moveDirection = (focalPoint.transform.forward * forwardInput) +
+                                (focalPoint.transform.right * horizontalInput);
 
         playerRb.AddForce(moveDirection * speed);
     }
-
-    private void Jump()
+    private void OnTriggerEnter(Collider other)
     {
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
-        {
-            playerRb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-            isGrounded = false;
-        }
+        if (other.CompareTag("Powerup"))
+        hasPowerup = true;
+        Destroy(other.gameObject);
+        StartCoroutine(PowerupCountdownRoutine());
+
     }
-
-    private void Dash()
-    {
-        if (Input.GetKeyDown(KeyCode.LeftShift) && Time.time > lastDashTime + dashCooldown)
-        {
-            Vector3 dashDirection =
-                focalPoint.transform.forward * Input.GetAxis("Vertical") +
-                focalPoint.transform.right * Input.GetAxis("Horizontal");
-
-            if (dashDirection.magnitude > 0.1f)
-            {
-                playerRb.AddForce(dashDirection.normalized * dashForce, ForceMode.Impulse);
-                lastDashTime = Time.time;
-            }
-        }
-    }
-
-    // Detect ground contact
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("Ground"))
-        {
-            isGrounded = true;
-        }
+        if (collision.gameObject.CompareTag("Enemy") && hasPowerup)
+        Debug.Log("Collided with " + collision.gameObject.name + " with powerup set to " + hasPowerup);
+        
+        Vector3 awayFromPlayer = collision.gameObject.transform.position - transform.position;
+        Rigidbody enemyRigidbody = collision.gameObject.GetComponent<Rigidbody>();
+        enemyRigidbody.AddForce(awayFromPlayer.normalized * powerupStrength, ForceMode.Impulse);
+    }
+    IEnumerator PowerupCountdownRoutine()
+    {
+        yield return new WaitForSeconds(7);
+        hasPowerup = false;
     }
 }
 
